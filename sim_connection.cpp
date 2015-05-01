@@ -124,11 +124,26 @@ SimConnection::listener()
           continue;
         }
         // some kind of error.  Reconnect.
-        close(socket_fd);
+        ::close(socket_fd);
         socket_fd = -1;
         break;
       }
     }
   }
   return 0;
+}
+
+void
+SimConnection::send(const std::string &msg)
+{
+  ::send(socket_fd, msg.c_str(), msg.length(), 0);
+}
+
+void
+SimConnection::send(const WirePair &pair)
+{
+  std::string wireString = pair.toWire();
+  wireString += "\n";
+
+  send(wireString);
 }
