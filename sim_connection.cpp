@@ -1,10 +1,12 @@
 #include "psx.h"
+#include <iostream>
 #include <cstdio>
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #else
 #include <netinet/in.h> 
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -44,14 +46,17 @@ SimConnection::connect()
   };
 
   struct addrinfo *results = NULL;
-  if (!getaddrinfo(hostname.c_str(), serviceName, &addrHints, &results)) {
+  if (getaddrinfo(hostname.c_str(), serviceName, &addrHints, &results)) {
     return false;
   }
 
   socket_fd = socket(results->ai_family, results->ai_socktype, 0);
   if (-1 == socket_fd) {
+    perror("connect: socket");
     return false;
   }
+  int nodelay = 1;
+  setsockopt(socket_fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay));
   int retry_delay = base_retry_interval;
   while (running) {
     if (!::connect(socket_fd, results->ai_addr, results->ai_addrlen)) {
@@ -105,7 +110,8 @@ SimConnection::listener()
 {
   while (running) {
     if (!connect()) {
-      return 1;
+      cerr << "failed to connect" << endl;
+      continue;
     }
 
     std::string   curMsg = "";
@@ -114,6 +120,7 @@ SimConnection::listener()
       int len = recv(socket_fd, &cBuf, 1, 0);
       if (len > 0) {
         if (cBuf == '\n') {
+          cerr << "got msg: " << curMsg << endl;
           interpret(curMsg);
           curMsg = "";
         } else {
