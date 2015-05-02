@@ -21,8 +21,8 @@ WirePair::WirePair(const std::string &fromWire) {
   if (string::npos == offs) {
     value = fromWire;
   } else {
-    key = fromWire.substr(0, offs-1);
-    value = fromWire.substr(offs+1, string::npos);
+    key = fromWire.substr(0, offs);
+    value = fromWire.substr(offs+1);
   }
 }
 

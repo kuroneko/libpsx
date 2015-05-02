@@ -120,7 +120,6 @@ SimConnection::listener()
       int len = recv(socket_fd, &cBuf, 1, 0);
       if (len > 0) {
         if (cBuf == '\n') {
-          cerr << "got msg: " << curMsg << endl;
           interpret(curMsg);
           curMsg = "";
         } else {
