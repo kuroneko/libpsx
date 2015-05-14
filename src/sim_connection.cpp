@@ -60,9 +60,9 @@ SimConnection::connect()
   serviceName[15] = '\0';
 
   struct addrinfo addrHints = {
-    ai_flags: AI_NUMERICSERV | AI_ADDRCONFIG,
-    ai_family: AF_INET,
-    ai_socktype: SOCK_STREAM,
+    .ai_flags = AI_NUMERICSERV | AI_ADDRCONFIG,
+    .ai_family = AF_INET,
+    .ai_socktype = SOCK_STREAM,
   };
 
   struct addrinfo *results = NULL;
