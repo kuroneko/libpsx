@@ -161,8 +161,10 @@ SimConnection::listener()
       char cBuf;
       int len = recv(socket_fd, &cBuf, 1, 0);
       if (len > 0) {
-        if (cBuf == '\n') {
-          interpret(curMsg);
+        if (cBuf == '\n' || cBuf == '\r') {
+		  if (curMsg.length() > 0) {
+			interpret(curMsg);
+		  }
           curMsg = "";
         } else {
           curMsg += cBuf;
