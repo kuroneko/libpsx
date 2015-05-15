@@ -21,10 +21,8 @@
 #include "psx.h"
 #include <iostream>
 #include <cstdio>
-#ifdef _WIN32
-#include <winsock2.h>
-#include <ws2tcpip.h>
-#else
+#ifndef _WIN32
+// For Posix-like systems (Linux, OSX, most others)
 #include <netinet/in.h> 
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
@@ -32,6 +30,23 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
+
+#define SOCKOPT_OPT_CAST(x)  (void*)(x)
+#else
+// for Windows
+#include <winsock2.h>
+#include <ws2tcpip.h>
+
+// general windows strangeness
+#define snprintf _snprintf
+
+// winsock decided to arbitrarily not follow the posix API - fixup to work around that.
+#define SHUT_RDWR SD_BOTH
+#define SOCKOPT_OPT_CAST(x)  (char*)(x)
+inline static int 
+close(SOCKET s) {
+  return closesocket(s); 
+}
 #endif
 
 using namespace std;
@@ -40,6 +55,10 @@ using namespace psx;
 SimConnection::SimConnection(const std::string &hostname, int port)
   : hostname(hostname), port(port)
 {
+#ifdef _WIN32
+  WSADATA	wsaData;
+  WSAStartup(MAKEWORD(2, 2), &wsaData);
+#endif
   msgMutex = SDL_CreateMutex();
 }
 
@@ -50,6 +69,9 @@ SimConnection::~SimConnection()
     SDL_DestroyMutex(msgMutex);
     msgMutex = NULL;
   }
+#ifdef _WIN32
+  WSACleanup();
+#endif
 }
 
 bool
@@ -59,11 +81,11 @@ SimConnection::connect()
   snprintf(serviceName, 16, "%d", port);
   serviceName[15] = '\0';
 
-  struct addrinfo addrHints = {
-    .ai_flags = AI_NUMERICSERV | AI_ADDRCONFIG,
-    .ai_family = AF_INET,
-    .ai_socktype = SOCK_STREAM,
-  };
+  struct addrinfo addrHints;
+  memset(&addrHints, 0, sizeof(addrHints));
+  addrHints.ai_flags = AI_NUMERICSERV | AI_ADDRCONFIG;
+  addrHints.ai_family = AF_INET;
+  addrHints.ai_socktype = SOCK_STREAM;
 
   struct addrinfo *results = NULL;
   if (getaddrinfo(hostname.c_str(), serviceName, &addrHints, &results)) {
@@ -76,7 +98,7 @@ SimConnection::connect()
     return false;
   }
   int nodelay = 1;
-  setsockopt(socket_fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay));
+  setsockopt(socket_fd, IPPROTO_TCP, TCP_NODELAY, SOCKOPT_OPT_CAST(&nodelay), sizeof(nodelay));
   int retry_delay = base_retry_interval;
   while (running) {
     if (!::connect(socket_fd, results->ai_addr, results->ai_addrlen)) {
@@ -87,7 +109,7 @@ SimConnection::connect()
       retry_delay *= 2;
     }
   }
-  close(socket_fd);
+  ::close(socket_fd);
   return false;
 }
 
@@ -97,7 +119,7 @@ SimConnection::stopListener()
   running = false;
   // force shtudown the socket - this should trip a 0 byte iop in the listener which will let it die.
   if (socket_fd >= 0) {
-    shutdown(socket_fd, SHUT_RDWR);
+	  shutdown(socket_fd, SHUT_RDWR);
   }
   if (rcvThread != NULL) {
     SDL_WaitThread(rcvThread, NULL);
