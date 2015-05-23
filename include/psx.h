@@ -44,8 +44,9 @@ namespace psx {
 
 	class SimConnection {
 	public:
+		std::string		myName;
 		std::string		hostname;
-		int 			port;
+		int 					port;
 
 		int             base_retry_interval =  500;
 		int             max_retry_interval = 10000;

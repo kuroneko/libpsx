@@ -53,7 +53,7 @@ using namespace std;
 using namespace psx;
 
 SimConnection::SimConnection(const std::string &hostname, int port)
-  : hostname(hostname), port(port)
+  : hostname(hostname), port(port), myName()
 {
 #ifdef _WIN32
   WSADATA	wsaData;
@@ -92,24 +92,30 @@ SimConnection::connect()
     return false;
   }
 
-  socket_fd = socket(results->ai_family, results->ai_socktype, 0);
-  if (-1 == socket_fd) {
-    perror("connect: socket");
-    return false;
-  }
-  int nodelay = 1;
-  setsockopt(socket_fd, IPPROTO_TCP, TCP_NODELAY, SOCKOPT_OPT_CAST(&nodelay), sizeof(nodelay));
-  int retry_delay = base_retry_interval;
-  while (running) {
-    if (!::connect(socket_fd, results->ai_addr, results->ai_addrlen)) {
-      return true;
+  if (0 == SDL_LockMutex(msgMutex)) {
+    socket_fd = socket(results->ai_family, results->ai_socktype, 0);
+    if (-1 == socket_fd) {
+      SDL_UnlockMutex(msgMutex);
+      perror("connect: socket");
+      return false;
     }
-    SDL_Delay(retry_delay);
-    if ((retry_delay * 2) <= max_retry_interval) {
-      retry_delay *= 2;
+    int nodelay = 1;
+    setsockopt(socket_fd, IPPROTO_TCP, TCP_NODELAY, SOCKOPT_OPT_CAST(&nodelay), sizeof(nodelay));
+    int retry_delay = base_retry_interval;
+    while (running) {
+      if (!::connect(socket_fd, results->ai_addr, results->ai_addrlen)) {
+        SDL_UnlockMutex(msgMutex);
+        return true;
+      }
+      SDL_Delay(retry_delay);
+      if ((retry_delay * 2) <= max_retry_interval) {
+        retry_delay *= 2;
+      }
     }
+    ::close(socket_fd);
+    socket_fd = -1;
+    SDL_UnlockMutex(msgMutex);
   }
-  ::close(socket_fd);
   return false;
 }
 
@@ -117,13 +123,16 @@ void
 SimConnection::stopListener()
 {
   running = false;
-  // force shtudown the socket - this should trip a 0 byte iop in the listener which will let it die.
-  if (socket_fd >= 0) {
-	  shutdown(socket_fd, SHUT_RDWR);
-  }
-  if (rcvThread != NULL) {
-    SDL_WaitThread(rcvThread, NULL);
-    rcvThread = NULL;
+  if (0 == SDL_LockMutex(msgMutex)) {
+    // force shtudown the socket - this should trip a 0 byte iop in the listener which will let it die.
+    if (socket_fd >= 0) {
+      shutdown(socket_fd, SHUT_RDWR);
+    }
+    SDL_UnlockMutex(msgMutex);
+    if (rcvThread != NULL) {
+      SDL_WaitThread(rcvThread, NULL);
+      rcvThread = NULL;
+    }
   }
 }
 
@@ -185,8 +194,11 @@ SimConnection::listener()
 
 void
 SimConnection::send(const std::string &msg)
-{
-  ::send(socket_fd, msg.c_str(), msg.length(), 0);
+{  
+  if (0 == SDL_LockMutex(msgMutex)) {
+    ::send(socket_fd, msg.c_str(), msg.length(), 0);
+    SDL_UnlockMutex(msgMutex);
+  }
 }
 
 void
