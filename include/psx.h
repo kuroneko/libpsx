@@ -46,6 +46,7 @@ namespace psx {
 	public:
 		std::string		myName;
 		std::string		hostname;
+		int           myId = 0;
 		int 					port;
 
 		int             base_retry_interval =  500;
@@ -68,9 +69,12 @@ namespace psx {
 		SDL_mutex   	*msgMutex = NULL;
 
 		void			send(const std::string &message);
-		virtual void    interpret(std::string message) = 0;
+		virtual void    interpret(std::string message);
+		virtual void		handlePair(const WirePair &msg) = 0;
 		bool 			connect();
 		void 			disconnect();
+
+		void			sendName();
 	};  
 
 	enum PSX_EventCode {
@@ -86,7 +90,7 @@ namespace psx {
 
 		Uint32      simEventType;
 	protected:
-		virtual void        interpret(std::string message);
+		virtual void        handlePair(const WirePair &msg);
 	};
 };
 

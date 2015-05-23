@@ -209,3 +209,27 @@ SimConnection::send(const WirePair &pair)
 
   send(wireString);
 }
+
+void
+SimConnection::sendName() 
+{
+  if (myName != "") {
+    WirePair msgOut;
+    msgOut.key = "name";
+    msgOut.value = myName;
+    send(msgOut);
+  }
+}
+
+void
+SimConnection::interpret(std::string message)
+{
+  WirePair msg(message);
+
+  if (msg.key == "id") {
+    myId = stoi(msg.value);
+    sendName();
+  } else {
+    handlePair(msg);
+  }
+}

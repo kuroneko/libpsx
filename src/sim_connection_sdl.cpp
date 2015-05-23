@@ -30,13 +30,13 @@ SimConnectionSdl::SimConnectionSdl(const std::string &hostname, int port)
 }
 
 void
-SimConnectionSdl::interpret(std::string message)
+SimConnectionSdl::handlePair(const WirePair &msg)
 {
   SDL_Event event;
   SDL_zero(event);
   event.type = simEventType;
   event.user.code = PSX_ServerMessage;
-  event.user.data1 = static_cast<void*>(new WirePair(message));
+  event.user.data1 = static_cast<void*>(new WirePair(msg));
   event.user.data2 = NULL;
   SDL_PushEvent(&event);
 }
